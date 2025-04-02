@@ -1,6 +1,5 @@
 "use client";
 
-import { signIn } from "@/auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hook/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { signIn as nextAuthSignIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -40,8 +40,8 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { toast } = useToast();
   const router = useRouter();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
@@ -56,37 +56,55 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      // First, validate credentials with our API
+      const loginResponse = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const loginResult = await loginResponse.json();
+
+      if (!loginResponse.ok) {
+        throw new Error(loginResult.error || "Failed to log in");
+      }
+
+      // If API validation succeeds, use NextAuth's signIn
+      const signInResult = await nextAuthSignIn("credentials", {
         email: data.email,
         password: data.password,
         redirect: false,
       });
 
-      if (result?.error) {
-        throw new Error(result.error);
+      if (signInResult?.error) {
+        throw new Error(signInResult.error);
       }
 
-      if (result?.ok) {
-        // Fetch user data to get username
-        const userResponse = await fetch("/api/user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email: data.email }),
-        });
+      // Fetch user data to get username using your existing API
+      const userResponse = await fetch("/api/user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: data.email }),
+      });
 
-        const userData = await userResponse.json();
+      const userData = await userResponse.json();
 
-        toast({
-          title: "Success!",
-          description: "You have been logged in.",
-        });
-
-        // Redirect to home page
-        router.push(`/home/${userData.username}`);
-        router.refresh();
+      if (!userResponse.ok) {
+        throw new Error(userData.error || "Failed to fetch user data");
       }
+
+      toast({
+        title: "Success!",
+        description: "You have been logged in.",
+      });
+
+      // Redirect to home page with username
+      router.push(`/home/${userData.username}`);
+      router.refresh(); // Force a refresh to update the session
     } catch (error) {
       console.error("Login error:", error);
       toast({
