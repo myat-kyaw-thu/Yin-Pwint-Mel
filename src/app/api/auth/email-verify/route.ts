@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       `,
         })
 
-        return NextResponse.json({ message: "Verification code sent to email" }, { status: 200 })
+        return NextResponse.json({ message: `Verification code sent to email this is code for temp ${verificationCode}` }, { status: 200 })
     } catch (error) {
         console.error("Email verification error:", error)
         return NextResponse.json({ error: "An error occurred during email verification" }, { status: 500 })
