@@ -1,29 +1,29 @@
-"use client"
+"use client";
 
-import BlogFeed from "@/components/blog/blog-feed"
-import HomeLayout from "@/components/layout/home-layout"
-import FollowingList from "@/components/user/following-list"
-import SuggestedUsers from "@/components/user/suggested-users"
-import UserProfileCard from "@/components/user/user-profile-card"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import BlogFeed from "@/components/blog/blog-feed";
+import HomeLayout from "@/components/layout/home-layout";
+import FollowingList from "@/components/user/following-list";
+import SuggestedUsers from "@/components/user/suggested-users";
+import UserProfileCard from "@/components/user/user-profile-card";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface User {
-  id: string
-  email: string
-  username: string
-  isVerified: boolean
-  createdAt?: string
-  firstName?: string
-  lastName?: string
+  id: string;
+  email: string;
+  username: string;
+  isVerified: boolean;
+  createdAt?: string;
+  firstName?: string;
+  lastName?: string;
   profile?: {
-    id?: string
-    bio?: string | null
-    pfp?: string | null
-    website?: string | null
-    birthdate?: string | null
-  } | null
+    id?: string;
+    bio?: string | null;
+    pfp?: string | null;
+    website?: string | null;
+    birthdate?: string | null;
+  } | null;
 }
 
 // Mock data for static UI elements
@@ -132,7 +132,7 @@ const MOCK_BLOGS = [
       likes: 8,
     },
   },
-]
+];
 
 const MOCK_FOLLOWING = [
   {
@@ -162,7 +162,7 @@ const MOCK_FOLLOWING = [
       bio: "Full stack developer",
     },
   },
-]
+];
 
 const MOCK_SUGGESTED_USERS = [
   {
@@ -204,25 +204,25 @@ const MOCK_SUGGESTED_USERS = [
       blogs: 22,
     },
   },
-]
+];
 
 export default function HomePage({ params }: { params: { username: string } }) {
-  const router = useRouter()
-  const { data: session, status } = useSession()
+  const router = useRouter();
+  const { data: session, status } = useSession();
 
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check if user is authenticated
     if (status === "unauthenticated") {
-      router.push("/auth/login")
-      return
+      router.push("/auth/login");
+      return;
     }
 
     // If still loading session, wait
     if (status === "loading") {
-      return
+      return;
     }
 
     // Fetch user data
@@ -236,69 +236,71 @@ export default function HomePage({ params }: { params: { username: string } }) {
           body: JSON.stringify({
             email: session?.user?.email,
           }),
-        })
+        });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch user data")
+          throw new Error("Failed to fetch user data");
         }
 
-        const userData = await response.json()
+        const userData = await response.json();
 
         // Verify the username in the URL matches the fetched user
         if (userData.username !== params.username) {
-          router.push(`/home/${userData.username}`)
-          return
+          router.push(`/home/${userData.username}`);
+          return;
         }
 
-        setUser(userData)
+        setUser(userData);
       } catch (error) {
-        console.error("Error fetching user data:", error)
-        router.push("/auth/login")
+        console.error("Error fetching user data:", error);
+        router.push("/auth/login");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
     if (session?.user?.email) {
-      fetchUserData()
+      fetchUserData();
     }
-  }, [params.username, router, session, status])
+  }, [params.username, router, session, status]);
 
   if (loading || status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-xl font-medium text-gray-700">Loading...</div>
       </div>
-    )
+    );
   }
 
   if (!user) {
-    return null // This will never render as we redirect in the catch block
+    return null; // This will never render as we redirect in the catch block
   }
 
   return (
     <HomeLayout user={user}>
       <div className="flex flex-col w-full max-w-4xl mx-auto">
         {/* Following users list */}
-        <FollowingList users={MOCK_FOLLOWING as any} />
+        <FollowingList users={MOCK_FOLLOWING} />
 
         {/* Main content area */}
         <div className="flex gap-8 mt-6">
           {/* Blog feed */}
           <div className="flex-1">
-            <BlogFeed blogs={MOCK_BLOGS as any} currentUser={user as any} />
+            <BlogFeed blogs={MOCK_BLOGS} currentUser={user} />
           </div>
 
           {/* Right sidebar */}
           <div className="w-80 hidden lg:block">
             <div className="sticky top-4 space-y-6">
-              <UserProfileCard user={user as any} />
-              <SuggestedUsers users={MOCK_SUGGESTED_USERS as any} currentUserId={user.id} />
+              <UserProfileCard user={user} />
+              <SuggestedUsers
+                users={MOCK_SUGGESTED_USERS}
+                currentUserId={user.id}
+              />
             </div>
           </div>
         </div>
       </div>
     </HomeLayout>
-  )
+  );
 }
-
