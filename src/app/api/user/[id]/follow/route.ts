@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 
-// POST /api/users/[id]/follow - Follow or unfollow a user
+// POST /api/user/[id]/follow - Follow or unfollow a user
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -73,7 +73,7 @@ export async function POST(
   }
 }
 
-// GET /api/users/[id]/follow - Check if current user is following a user
+// GET /api/user/[id]/follow - Check if current user is following a user
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }

@@ -154,7 +154,7 @@ export default function UserProfileContent({
   // Fetch user stats
   const fetchUserStats = useCallback(async (userId: string) => {
     try {
-      const response = await fetch(`/api/users/${userId}/stats`, {
+      const response = await fetch(`/api/user/${userId}/stats`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

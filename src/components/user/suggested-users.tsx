@@ -1,45 +1,50 @@
-"use client"
+"use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
-import { useState } from "react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { useState } from "react";
 
 interface User {
-  id: string
-  username: string
-  email: string
+  id: string;
+  username: string;
+  email: string;
   profile?: {
-    pfp?: string | null
-    bio?: string | null
-  } | null
+    pfp?: string | null;
+    bio?: string | null;
+  } | null;
   _count: {
-    followers: number
-    blogs: number
-  }
+    followers: number;
+    blogs: number;
+  };
 }
 
 interface SuggestedUsersProps {
-  users: User[]
-  currentUserId: string
+  users: User[];
+  currentUserId: string;
 }
 
-export default function SuggestedUsers({ users, currentUserId }: SuggestedUsersProps) {
-  const [followingState, setFollowingState] = useState<Record<string, boolean>>({})
+export default function SuggestedUsers({
+  users,
+  currentUserId,
+}: SuggestedUsersProps) {
+  const [followingState, setFollowingState] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const handleFollow = async (userId: string) => {
     setFollowingState({
       ...followingState,
       [userId]: !followingState[userId],
-    })
+    });
 
     // Here you would make an API call to follow/unfollow the user
-    // await fetch(`/api/users/${userId}/follow`, { method: 'POST' });
-  }
+    // await fetch(`/api/user/${userId}/follow`, { method: 'POST' });
+  };
 
   if (users.length === 0) {
-    return null
+    return null;
   }
 
   return (
@@ -52,11 +57,19 @@ export default function SuggestedUsers({ users, currentUserId }: SuggestedUsersP
           <div key={user.id} className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarImage src={user.profile?.pfp || undefined} alt={user.username} />
-                <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage
+                  src={user.profile?.pfp || undefined}
+                  alt={user.username}
+                />
+                <AvatarFallback>
+                  {user.username.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
               <div>
-                <Link href={`/profile/${user.username}`} className="font-medium text-gray-900 hover:underline text-sm">
+                <Link
+                  href={`/profile/${user.username}`}
+                  className="font-medium text-gray-900 hover:underline text-sm"
+                >
                   {user.username}
                 </Link>
                 <p className="text-xs text-gray-500">
@@ -75,11 +88,13 @@ export default function SuggestedUsers({ users, currentUserId }: SuggestedUsersP
           </div>
         ))}
 
-        <Link href="/explore" className="text-sm text-gray-500 hover:text-gray-900 block text-center mt-2">
+        <Link
+          href="/explore"
+          className="text-sm text-gray-500 hover:text-gray-900 block text-center mt-2"
+        >
           See More
         </Link>
       </CardContent>
     </Card>
-  )
+  );
 }
-

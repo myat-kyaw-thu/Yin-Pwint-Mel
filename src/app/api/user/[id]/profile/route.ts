@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 
-// PUT /api/users/[id]/profile - Update user profile
+// PUT /api/user/[id]/profile - Update user profile
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }

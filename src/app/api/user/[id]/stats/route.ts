@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
- * GET /api/users/[userId]/stats
+ * GET /api/user/[userId]/stats
  * Returns user stats (posts, followers, following)
  */
 export async function GET(

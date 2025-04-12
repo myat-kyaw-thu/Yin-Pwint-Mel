@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 
-// GET /api/users/username/[username] - Get user by username
+// GET /api/user/username/[username] - Get user by username
 export async function GET(
   request: NextRequest,
   { params }: { params: { username: string } }

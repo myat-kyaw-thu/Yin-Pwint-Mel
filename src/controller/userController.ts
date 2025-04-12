@@ -140,7 +140,7 @@ class UserController {
     profileData: Partial<User>
   ): Promise<User | null> {
     try {
-      const response = await fetch(`/api/users/${userId}/profile`, {
+      const response = await fetch(`/api/user/${userId}/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -239,7 +239,7 @@ class UserController {
       }
 
       const response = await fetch(
-        `/api/users/${userId}/blogs?${queryParams.toString()}`,
+        `/api/user/${userId}/blogs?${queryParams.toString()}`,
         {
           method: "GET",
           headers: {

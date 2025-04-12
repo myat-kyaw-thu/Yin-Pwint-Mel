@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from "next/server";
 const ITEMS_PER_PAGE = 10;
 
 /**
- * GET /api/users/[userId]/blogs
+ * GET /api/user/[userId]/blogs
  * Returns blogs created by a specific user with pagination
  */
 export async function GET(
