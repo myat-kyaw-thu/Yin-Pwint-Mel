@@ -179,6 +179,7 @@ class UserController {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-user-id": userId,
         },
       });
 
@@ -204,13 +205,23 @@ class UserController {
   /**
    * Check if current user is following another user
    */
-  async isFollowing(userId: string): Promise<boolean> {
+  async isFollowing(
+    targetUserId: string,
+    currentUserId?: string
+  ): Promise<boolean> {
     try {
-      const response = await fetch(`/api/user/${userId}/follow`, {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+
+      // Add current user ID to headers if provided
+      if (currentUserId) {
+        headers["x-user-id"] = currentUserId;
+      }
+
+      const response = await fetch(`/api/user/${targetUserId}/follow`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -230,6 +241,7 @@ class UserController {
       return false;
     }
   }
+
   async getUserBlogs(userId: string, cursor?: string | null) {
     try {
       const queryParams = new URLSearchParams();
