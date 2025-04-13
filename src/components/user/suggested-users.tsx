@@ -1,10 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import { useState } from "react";
+import { userController } from "@/controller/userController";
+import { useToast } from "@/hook/use-toast";
+import useStore from "@/lib/store";
 
 interface User {
   id: string;
@@ -18,6 +22,7 @@ interface User {
     followers: number;
     blogs: number;
   };
+  isFollowing: boolean;
 }
 
 interface SuggestedUsersProps {
@@ -26,22 +31,92 @@ interface SuggestedUsersProps {
 }
 
 export default function SuggestedUsers({
-  users,
+  users: initialUsers,
   currentUserId,
 }: SuggestedUsersProps) {
+  const { toast } = useToast();
+  const [users, setUsers] = useState<User[]>(initialUsers);
   const [followingState, setFollowingState] = useState<Record<string, boolean>>(
     {}
   );
+  const { invalidateFollowStatus, invalidateUserStats } = useStore();
 
-  const handleFollow = async (userId: string) => {
-    setFollowingState({
-      ...followingState,
-      [userId]: !followingState[userId],
+  // Initialize following state from users
+  useEffect(() => {
+    const initialState: Record<string, boolean> = {};
+    initialUsers.forEach((user) => {
+      initialState[user.id] = user.isFollowing || false;
     });
+    setFollowingState(initialState);
+    setUsers(initialUsers);
+  }, [initialUsers]);
 
-    // Here you would make an API call to follow/unfollow the user
-    // await fetch(`/api/user/${userId}/follow`, { method: 'POST' });
-  };
+  const handleFollow = useCallback(
+    async (userId: string) => {
+      try {
+        // Optimistic update
+        const newFollowingState = !followingState[userId];
+
+        setFollowingState((prev) => ({
+          ...prev,
+          [userId]: newFollowingState,
+        }));
+
+        // Call API
+        const result = await userController.toggleFollow(userId, currentUserId);
+
+        // If API returns different result, revert
+        if (result.following !== newFollowingState) {
+          setFollowingState((prev) => ({
+            ...prev,
+            [userId]: result.following,
+          }));
+        }
+
+        // Update user in the list
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === userId
+              ? {
+                  ...user,
+                  isFollowing: result.following,
+                  _count: {
+                    ...user._count,
+                    followers:
+                      user._count.followers + (result.following ? 1 : -1),
+                  },
+                }
+              : user
+          )
+        );
+
+        // Invalidate caches
+        invalidateFollowStatus(userId);
+        invalidateUserStats(userId);
+      } catch (error) {
+        console.error("Error toggling follow:", error);
+
+        // Revert on error
+        setFollowingState((prev) => ({
+          ...prev,
+          [userId]: !prev[userId],
+        }));
+
+        toast({
+          title: "Error",
+          description: "Failed to update follow status",
+          variant: "destructive",
+        });
+      }
+    },
+    [
+      followingState,
+      currentUserId,
+      toast,
+      invalidateFollowStatus,
+      invalidateUserStats,
+    ]
+  );
 
   if (users.length === 0) {
     return null;
