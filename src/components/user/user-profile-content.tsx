@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Blog } from "@/controller/blogController";
 import { userController, type User } from "@/controller/userController";
 import { useToast } from "@/hook/use-toast";
+import useStore from "@/lib/store";
 import BlogFeed from "../blog/blog-feed";
 import ProfileEditForm from "./profile-edit-form";
 
@@ -36,9 +37,24 @@ export default function UserProfileContent({
   const { data: session, status } = useSession();
   const { toast } = useToast();
 
+  // Global state from store
+  const {
+    currentUser,
+    setCurrentUser,
+    getUserProfile,
+    setUserProfile,
+    getUserBlogs,
+    setUserBlogs,
+    getUserStats,
+    setUserStats,
+    getFollowStatus,
+    setFollowStatus,
+    invalidateUserStats,
+  } = useStore();
+
   // State
   const [user, setUser] = useState<User | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [isCurrentUser, setIsCurrentUser] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,7 +64,7 @@ export default function UserProfileContent({
     followers: 0,
     following: 0,
   });
-  const [userBlogs, setUserBlogs] = useState<Blog[]>([]);
+  const [userBlogs, setLocalUserBlogs] = useState<Blog[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
 
@@ -64,9 +80,22 @@ export default function UserProfileContent({
 
         if (response && response.data) {
           if (!cursor) {
-            setUserBlogs(response.data);
+            setLocalUserBlogs(response.data);
+
+            // Update cache
+            setUserBlogs(userId, response.data, {
+              hasMore: response.pagination.hasMore,
+              nextCursor: response.pagination.nextCursor,
+            });
           } else {
-            setUserBlogs((prev) => [...prev, ...response.data]);
+            const newBlogs = [...userBlogs, ...response.data];
+            setLocalUserBlogs(newBlogs);
+
+            // Update cache with combined data
+            setUserBlogs(userId, newBlogs, {
+              hasMore: response.pagination.hasMore,
+              nextCursor: response.pagination.nextCursor,
+            });
           }
 
           setHasMore(response.pagination.hasMore);
@@ -81,7 +110,7 @@ export default function UserProfileContent({
         });
       }
     },
-    [toast]
+    [toast, userBlogs, setUserBlogs]
   );
 
   // Load more blogs
@@ -93,7 +122,7 @@ export default function UserProfileContent({
 
   // Toggle follow status
   const toggleFollow = useCallback(async () => {
-    if (!currentUser?.id || !user?.id) return;
+    if (!currentUserData?.id || !user?.id) return;
 
     try {
       // Optimistic update
@@ -114,6 +143,12 @@ export default function UserProfileContent({
           followers: prev.followers + (result.following ? 1 : -1),
         }));
       }
+
+      // Update cache
+      setFollowStatus(user.id, result.following);
+
+      // Invalidate stats cache since follower count changed
+      invalidateUserStats(user.id);
     } catch (error) {
       console.error("Error toggling follow:", error);
 
@@ -130,13 +165,28 @@ export default function UserProfileContent({
         variant: "destructive",
       });
     }
-  }, [currentUser?.id, isFollowing, toast, user?.id]);
+  }, [
+    currentUserData?.id,
+    isFollowing,
+    toast,
+    user?.id,
+    setFollowStatus,
+    invalidateUserStats,
+  ]);
 
   // Handle profile update
   const handleProfileUpdate = useCallback(
     (updatedUser: User) => {
       setUser(updatedUser);
       setShowEditForm(false);
+
+      // Update cache
+      setUserProfile(updatedUser.username, updatedUser);
+
+      // If this is the current user, update that too
+      if (isCurrentUser) {
+        setCurrentUser(updatedUser);
+      }
 
       toast({
         title: "Success",
@@ -148,46 +198,95 @@ export default function UserProfileContent({
         router.push(`/profile/${updatedUser.username}`);
       }
     },
-    [router, toast, username]
+    [router, toast, username, isCurrentUser, setUserProfile, setCurrentUser]
   );
 
   // Fetch user stats
-  const fetchUserStats = useCallback(async (userId: string) => {
-    try {
-      const response = await fetch(`/api/user/${userId}/stats`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+  const fetchUserStats = useCallback(
+    async (userId: string) => {
+      try {
+        // Check cache first
+        const cachedStats = getUserStats(userId);
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch user stats");
-      }
+        if (cachedStats) {
+          setStats({
+            posts: cachedStats.posts,
+            followers: cachedStats.followers,
+            following: cachedStats.following,
+          });
+          return;
+        }
 
-      const result = await response.json();
-
-      if (result.success) {
-        setStats({
-          posts: result.data?.posts || 0,
-          followers: result.data?.followers || 0,
-          following: result.data?.following || 0,
+        // Fetch from API if not in cache
+        const response = await fetch(`/api/user/${userId}/stats`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch user stats");
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          const statsData = {
+            posts: result.data?.posts || 0,
+            followers: result.data?.followers || 0,
+            following: result.data?.following || 0,
+          };
+
+          setStats(statsData);
+
+          // Save to cache
+          setUserStats(userId, statsData);
+        }
+      } catch (error) {
+        console.error(`Error fetching stats for user ${userId}:`, error);
       }
-    } catch (error) {
-      console.error(`Error fetching stats for user ${userId}:`, error);
-    }
-  }, []);
+    },
+    [getUserStats, setUserStats]
+  );
 
   // Check if current user is following profile user
-  const checkFollowStatus = useCallback(async (userId: string) => {
-    try {
-      const isFollowing = await userController.isFollowing(userId);
-      setIsFollowing(isFollowing);
-    } catch (error) {
-      console.error(`Error checking follow status for user ${userId}:`, error);
-    }
-  }, []);
+  const checkFollowStatus = useCallback(
+    async (userId: string) => {
+      try {
+        if (!currentUserData?.id) {
+          console.error(
+            "Cannot check follow status: current user ID is missing"
+          );
+          return;
+        }
+
+        // Check cache first
+        const cachedStatus = getFollowStatus(userId);
+
+        if (cachedStatus) {
+          setIsFollowing(cachedStatus.following);
+          return;
+        }
+
+        // Fetch from API if not in cache
+        const isFollowing = await userController.isFollowing(
+          userId,
+          currentUserData.id
+        );
+        setIsFollowing(isFollowing);
+
+        // Save to cache
+        setFollowStatus(userId, isFollowing);
+      } catch (error) {
+        console.error(
+          `Error checking follow status for user ${userId}:`,
+          error
+        );
+      }
+    },
+    [currentUserData?.id, getFollowStatus, setFollowStatus]
+  );
 
   // Main data fetching effect
   useEffect(() => {
@@ -220,42 +319,64 @@ export default function UserProfileContent({
           throw new Error("User email not available");
         }
 
-        // Fetch current user data (the logged-in user)
-        const currentUserData = await userController.getUserByEmail(
-          session.user.email
-        );
+        // 1. Get current user (logged-in user)
+        let loggedInUser = currentUser;
 
-        if (!currentUserData) {
-          throw new Error("Failed to fetch current user data");
+        if (!loggedInUser) {
+          loggedInUser = await userController.getUserByEmail(
+            session.user.email
+          );
+          if (!loggedInUser) {
+            throw new Error("Failed to fetch current user data");
+          }
+          setCurrentUser(loggedInUser);
         }
 
-        setCurrentUser(currentUserData);
+        setCurrentUserData(loggedInUser);
 
-        // Fetch profile user data (the user being viewed)
-        const profileUserData =
-          await userController.getUserByUsername(username);
+        // 2. Get profile user (the user being viewed)
+        // Check cache first
+        let profileUser = getUserProfile(username);
 
-        if (!profileUserData) {
-          router.push("/404");
-          return;
+        if (!profileUser) {
+          // Fetch from API if not in cache
+          profileUser = await userController.getUserByUsername(username);
+
+          if (!profileUser) {
+            router.push("/404");
+            return;
+          }
+
+          // Save to cache
+          setUserProfile(username, profileUser);
         }
 
-        setUser(profileUserData);
+        setUser(profileUser);
 
-        // Check if current user is viewing their own profile
-        const isSameUser = currentUserData.id === profileUserData.id;
+        // 3. Check if current user is viewing their own profile
+        const isSameUser = loggedInUser.id === profileUser.id;
         setIsCurrentUser(isSameUser);
 
-        // If not viewing own profile, check follow status
+        // 4. If not viewing own profile, check follow status
         if (!isSameUser) {
-          await checkFollowStatus(profileUserData.id);
+          await checkFollowStatus(profileUser.id);
         }
 
-        // Fetch user stats
-        await fetchUserStats(profileUserData.id);
+        // 5. Fetch user stats
+        await fetchUserStats(profileUser.id);
 
-        // Fetch user blogs
-        await fetchUserBlogs(profileUserData.id);
+        // 6. Fetch user blogs - check cache first
+        const cachedBlogs = getUserBlogs(profileUser.id);
+
+        if (cachedBlogs) {
+          // Use cached data
+          setLocalUserBlogs(cachedBlogs.data);
+          setHasMore(cachedBlogs.pagination.hasMore);
+          setNextCursor(cachedBlogs.pagination.nextCursor);
+        } else {
+          // Fetch from API
+          await fetchUserBlogs(profileUser.id);
+        }
 
         // Mark as initialized
         isInitialized.current = true;
@@ -277,10 +398,15 @@ export default function UserProfileContent({
     router,
     session,
     status,
-    fetchUserBlogs,
-    toast,
     checkFollowStatus,
     fetchUserStats,
+    fetchUserBlogs,
+    toast,
+    currentUser,
+    setCurrentUser,
+    getUserProfile,
+    setUserProfile,
+    getUserBlogs,
   ]);
 
   if (loading || status === "loading") {
@@ -291,7 +417,7 @@ export default function UserProfileContent({
     );
   }
 
-  if (!user || !currentUser) {
+  if (!user || !currentUserData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-xl font-medium text-gray-700">User not found</div>
@@ -300,7 +426,7 @@ export default function UserProfileContent({
   }
 
   return (
-    <HomeLayout user={currentUser}>
+    <HomeLayout user={currentUserData}>
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-8">
@@ -438,7 +564,7 @@ export default function UserProfileContent({
           <TabsContent value="posts">
             <BlogFeed
               blogs={userBlogs}
-              currentUser={currentUser}
+              currentUser={currentUserData}
               hasMore={hasMore}
               onLoadMore={loadMoreBlogs}
             />
@@ -457,7 +583,7 @@ export default function UserProfileContent({
                 {isCurrentUser && (
                   <Button
                     className="mt-4"
-                    onClick={() => router.push("/create-blog")}
+                    onClick={() => router.push("/create")}
                   >
                     Create Post
                   </Button>
