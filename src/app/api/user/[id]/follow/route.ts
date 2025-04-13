@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const followingId = params.id; // The user to follow
+    const followingId = params.id;
     const followerId = request.headers.get("x-user-id"); // The current user
 
     if (!followerId) {

@@ -1,48 +1,47 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 
+/**
+ * POST /api/user
+ * Get user by email
+ */
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Email is required" },
+        { status: 400 }
+      );
     }
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        isVerified: true,
-        firstName: true,
-        lastName: true,
-        location: true,
-        about: true,
-        createdAt: true,
-        profile: {
-          select: {
-            id: true,
-            bio: true,
-            pfp: true,
-            website: true,
-            birthdate: true,
-          },
-        },
+      include: {
+        profile: true,
       },
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "User not found" },
+        { status: 404 }
+      );
     }
 
-    // Return in the original format for backward compatibility
-    return NextResponse.json(user);
+    // Remove sensitive information
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = user;
+
+    return NextResponse.json({
+      success: true,
+      user: userWithoutPassword,
+    });
   } catch (error) {
-    console.error("User fetch error:", error);
+    console.error("Error fetching user by email:", error);
     return NextResponse.json(
-      { error: "An error occurred while fetching user data" },
+      { success: false, message: "Failed to fetch user" },
       { status: 500 }
     );
   }
