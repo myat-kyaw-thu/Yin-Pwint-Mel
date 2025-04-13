@@ -133,7 +133,7 @@ export default function UserProfileContent({
       }));
 
       // Call API
-      const result = await userController.toggleFollow(user.id);
+      const result = await userController.toggleFollow(currentUser.id, user.id);
 
       // If API returns different result, revert
       if (result.following !== !isFollowing) {
