@@ -22,6 +22,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { blogController } from "@/controller/blogController";
+import useStore from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -80,6 +81,9 @@ export default function BlogCard({
   onLikeChange,
   onFavoriteChange,
 }: BlogCardProps) {
+  // Get invalidation functions from store
+  const { invalidateFeedBlogs, invalidateUserBlogs } = useStore();
+
   // Initialize state from props, but don't update when props change
   // This prevents unnecessary re-renders and API calls
   const [liked, setLiked] = useState(blog.isLiked || false);
@@ -114,13 +118,28 @@ export default function BlogCard({
         setLiked(result.liked);
         setLikeCount(result.liked ? likeCount + 1 : likeCount - 1);
       }
+
+      // Invalidate relevant caches since like status has changed
+      invalidateFeedBlogs(currentUser.id);
+      if (blog.authorId) {
+        invalidateUserBlogs(blog.authorId);
+      }
     } catch (error) {
       // Revert on error
       console.error("Error toggling like:", error);
       setLiked(!liked);
       setLikeCount(liked ? likeCount + 1 : likeCount - 1);
     }
-  }, [blog.id, currentUser?.id, liked, likeCount, onLikeChange]);
+  }, [
+    blog.id,
+    blog.authorId,
+    currentUser?.id,
+    liked,
+    likeCount,
+    onLikeChange,
+    invalidateFeedBlogs,
+    invalidateUserBlogs,
+  ]);
 
   const handleSave = useCallback(async () => {
     if (!currentUser?.id) {
@@ -148,12 +167,15 @@ export default function BlogCard({
       if (result.favorited !== newSavedState) {
         setSaved(result.favorited);
       }
+
+      // Invalidate relevant caches since favorite status has changed
+      invalidateFeedBlogs(currentUser.id);
     } catch (error) {
       // Revert on error
       console.error("Error toggling favorite:", error);
       setSaved(!saved);
     }
-  }, [blog.id, currentUser?.id, saved, onFavoriteChange]);
+  }, [blog.id, currentUser?.id, saved, onFavoriteChange, invalidateFeedBlogs]);
 
   // Update local state if the blog prop changes significantly
   // This is important for virtual lists or when the same component is reused

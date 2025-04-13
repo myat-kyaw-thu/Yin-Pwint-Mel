@@ -35,6 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { blogController, type Blog } from "@/controller/blogController";
 import { userController, type User } from "@/controller/userController";
 import { useToast } from "@/hook/use-toast";
+import useStore from "@/lib/store";
 
 interface Comment {
   id: string;
@@ -59,6 +60,20 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
   const { toast } = useToast();
   const commentInputRef = useRef<HTMLInputElement>(null);
 
+  // Get store functions
+  const {
+    currentUser,
+    setCurrentUser,
+    getBlogDetail,
+    setBlogDetail,
+    getBlogComments,
+    setBlogComments,
+    invalidateBlogDetail,
+    invalidateBlogComments,
+    invalidateFeedBlogs,
+    invalidateUserBlogs,
+  } = useStore();
+
   // State
   const [blog, setBlog] = useState<Blog | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -78,10 +93,30 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
   const fetchComments = useCallback(
     async (userId: string, page = 1) => {
       try {
+        // Check cache first if it's the first page
+        if (page === 1) {
+          const cachedComments = getBlogComments(blogId);
+          if (cachedComments) {
+            setComments(cachedComments.comments);
+            setCommentPage(cachedComments.pagination.page);
+            setHasMoreComments(
+              cachedComments.pagination.page <
+                cachedComments.pagination.totalPages
+            );
+            return;
+          }
+        }
+
+        // Fetch from API if not in cache or loading more pages
         const result = await blogController.getComments(blogId, page, userId);
 
         if (page === 1) {
           setComments(result.comments);
+          // Save to cache only for first page
+          setBlogComments(blogId, result.comments, {
+            page: page,
+            totalPages: result.pagination.totalPages,
+          });
         } else {
           setComments((prev) => [...prev, ...result.comments]);
         }
@@ -97,7 +132,7 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
         });
       }
     },
-    [blogId, toast]
+    [blogId, toast, getBlogComments, setBlogComments]
   );
 
   // Load more comments
@@ -157,6 +192,13 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
           };
         });
       }
+
+      // Invalidate caches since like status has changed
+      invalidateBlogDetail(blogId);
+      invalidateFeedBlogs(user.id);
+      if (blog.authorId) {
+        invalidateUserBlogs(blog.authorId);
+      }
     } catch (error) {
       console.error("Error toggling like:", error);
 
@@ -179,7 +221,15 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
         variant: "destructive",
       });
     }
-  }, [user?.id, blog, blogId, toast]);
+  }, [
+    user?.id,
+    blog,
+    blogId,
+    toast,
+    invalidateBlogDetail,
+    invalidateFeedBlogs,
+    invalidateUserBlogs,
+  ]);
 
   // Handle favorite with optimistic update
   const handleFavorite = useCallback(async () => {
@@ -211,6 +261,10 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
           };
         });
       }
+
+      // Invalidate caches
+      invalidateBlogDetail(blogId);
+      invalidateFeedBlogs(user.id);
     } catch (error) {
       console.error("Error toggling favorite:", error);
 
@@ -229,7 +283,14 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
         variant: "destructive",
       });
     }
-  }, [user?.id, blog, blogId, toast]);
+  }, [
+    user?.id,
+    blog,
+    blogId,
+    toast,
+    invalidateBlogDetail,
+    invalidateFeedBlogs,
+  ]);
 
   // Handle comment submission
   const handleCommentSubmit = useCallback(async () => {
@@ -258,6 +319,9 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
           },
         };
       });
+
+      // Invalidate comment cache
+      invalidateBlogComments(blogId);
     } catch (error) {
       console.error("Error adding comment:", error);
       toast({
@@ -268,7 +332,7 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
     } finally {
       setSubmittingComment(false);
     }
-  }, [newComment, user?.id, blogId, toast]);
+  }, [newComment, user?.id, blogId, toast, invalidateBlogComments]);
 
   // Handle comment deletion
   const handleDeleteComment = useCallback(
@@ -304,6 +368,9 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
             title: "Success",
             description: "Comment deleted successfully",
           });
+
+          // Invalidate comment cache
+          invalidateBlogComments(blogId);
         }
       } catch (error) {
         console.error("Error deleting comment:", error);
@@ -314,7 +381,7 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
         });
       }
     },
-    [user?.id, blogId, toast]
+    [user?.id, blogId, toast, invalidateBlogComments]
   );
 
   // Handle blog deletion
@@ -335,6 +402,13 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
             description: "Blog post deleted successfully",
           });
 
+          // Invalidate caches
+          invalidateBlogDetail(blogId);
+          invalidateFeedBlogs(user.id);
+          if (blog.authorId) {
+            invalidateUserBlogs(blog.authorId);
+          }
+
           router.push("/");
         }
       } catch (error) {
@@ -346,7 +420,16 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
         });
       }
     }
-  }, [blog, user?.id, blogId, router, toast]);
+  }, [
+    blog,
+    user?.id,
+    blogId,
+    router,
+    toast,
+    invalidateBlogDetail,
+    invalidateFeedBlogs,
+    invalidateUserBlogs,
+  ]);
 
   // Focus comment input
   const handleCommentFocus = useCallback(() => {
@@ -395,28 +478,46 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
           throw new Error("User email not available");
         }
 
-        // Use userController to fetch user data
-        const userData = await userController.getUserByEmail(
-          session.user.email
-        );
+        // 1. Get current user - check store first
+        let userData = currentUser;
 
         if (!userData) {
-          throw new Error("Failed to fetch user data");
+          // Fetch from API if not in store
+          userData = await userController.getUserByEmail(session.user.email);
+          if (!userData) {
+            throw new Error("Failed to fetch user data");
+          }
+          // Save to store
+          setCurrentUser(userData);
         }
 
         setUser(userData);
 
-        // Fetch blog data with user ID
-        const blogData = await blogController.getBlogById(userData.id, blogId);
+        // 2. Fetch blog data - check cache first
+        const cachedBlog = getBlogDetail(blogId);
 
-        if (!blogData) {
-          router.push("/404");
-          return;
+        if (cachedBlog) {
+          // Use cached data
+          setBlog(cachedBlog.data);
+        } else {
+          // Fetch from API
+          const blogData = await blogController.getBlogById(
+            userData.id,
+            blogId
+          );
+
+          if (!blogData) {
+            router.push("/404");
+            return;
+          }
+
+          setBlog(blogData);
+
+          // Save to cache
+          setBlogDetail(blogId, blogData);
         }
 
-        setBlog(blogData);
-
-        // Fetch comments with user ID
+        // 3. Fetch comments - this will check cache internally
         await fetchComments(userData.id);
 
         // Mark as initialized to prevent multiple fetches
@@ -436,7 +537,18 @@ export default function BlogDetailContent({ blogId }: BlogDetailContentProps) {
     if (session?.user?.email) {
       fetchData();
     }
-  }, [blogId, session, status, router, fetchComments, toast]);
+  }, [
+    blogId,
+    session,
+    status,
+    router,
+    fetchComments,
+    toast,
+    currentUser,
+    setCurrentUser,
+    getBlogDetail,
+    setBlogDetail,
+  ]);
 
   if (loading || status === "loading") {
     return (
