@@ -13,6 +13,19 @@ interface FollowingUser extends User {
   } | null;
 }
 
+interface Comment {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    profile?: {
+      pfp?: string | null;
+    } | null;
+  };
+}
+
 interface AppState {
   // User data
   currentUser: User | null;
@@ -40,6 +53,31 @@ interface AppState {
   getFeedBlogs: (userId: string) => {
     data: Blog[];
     pagination: { hasMore: boolean; nextCursor: string | null };
+    timestamp: number;
+  } | null;
+
+  // Blog detail data
+  blogDetails: Record<string, { data: Blog; timestamp: number }>;
+  setBlogDetail: (blogId: string, data: Blog) => void;
+  getBlogDetail: (blogId: string) => { data: Blog; timestamp: number } | null;
+
+  // Blog comments
+  blogComments: Record<
+    string,
+    {
+      comments: Comment[];
+      pagination: { page: number; totalPages: number };
+      timestamp: number;
+    }
+  >;
+  setBlogComments: (
+    blogId: string,
+    comments: Comment[],
+    pagination: { page: number; totalPages: number }
+  ) => void;
+  getBlogComments: (blogId: string) => {
+    comments: Comment[];
+    pagination: { page: number; totalPages: number };
     timestamp: number;
   } | null;
 
@@ -105,6 +143,8 @@ interface AppState {
   invalidateSuggestedUsers: () => void;
   invalidateUserStats: (userId: string) => void;
   invalidateFollowStatus: (userId: string) => void;
+  invalidateBlogDetail: (blogId: string) => void;
+  invalidateBlogComments: (blogId: string) => void;
   clearCache: () => void;
 }
 
@@ -144,6 +184,47 @@ const useStore = create<AppState>()(
         })),
       getFeedBlogs: (userId) => {
         const cached = get().feedBlogs[userId];
+        if (!cached || Date.now() - cached.timestamp > CACHE_EXPIRATION) {
+          return null;
+        }
+        return cached;
+      },
+
+      // Blog detail
+      blogDetails: {},
+      setBlogDetail: (blogId, data) =>
+        set((state) => ({
+          blogDetails: {
+            ...state.blogDetails,
+            [blogId]: {
+              data,
+              timestamp: Date.now(),
+            },
+          },
+        })),
+      getBlogDetail: (blogId) => {
+        const cached = get().blogDetails[blogId];
+        if (!cached || Date.now() - cached.timestamp > CACHE_EXPIRATION) {
+          return null;
+        }
+        return cached;
+      },
+
+      // Blog comments
+      blogComments: {},
+      setBlogComments: (blogId, comments, pagination) =>
+        set((state) => ({
+          blogComments: {
+            ...state.blogComments,
+            [blogId]: {
+              comments,
+              pagination,
+              timestamp: Date.now(),
+            },
+          },
+        })),
+      getBlogComments: (blogId) => {
+        const cached = get().blogComments[blogId];
         if (!cached || Date.now() - cached.timestamp > CACHE_EXPIRATION) {
           return null;
         }
@@ -314,6 +395,26 @@ const useStore = create<AppState>()(
             followStatus: newFollowStatus,
           };
         }),
+      invalidateBlogDetail: (blogId) =>
+        set((state) => {
+          const { blogDetails, ...rest } = state;
+          const newBlogDetails = { ...blogDetails };
+          delete newBlogDetails[blogId];
+          return {
+            ...rest,
+            blogDetails: newBlogDetails,
+          };
+        }),
+      invalidateBlogComments: (blogId) =>
+        set((state) => {
+          const { blogComments, ...rest } = state;
+          const newBlogComments = { ...blogComments };
+          delete newBlogComments[blogId];
+          return {
+            ...rest,
+            blogComments: newBlogComments,
+          };
+        }),
       clearCache: () =>
         set({
           userProfiles: {},
@@ -323,6 +424,8 @@ const useStore = create<AppState>()(
           suggestedUsers: null,
           userStats: {},
           followStatus: {},
+          blogDetails: {},
+          blogComments: {},
         }),
     }),
     {
@@ -336,6 +439,8 @@ const useStore = create<AppState>()(
         suggestedUsers: state.suggestedUsers,
         userStats: state.userStats,
         followStatus: state.followStatus,
+        blogDetails: state.blogDetails,
+        blogComments: state.blogComments,
       }),
     }
   )
