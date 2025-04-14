@@ -4,7 +4,7 @@ import type React from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, X } from "lucide-react";
+import { CalendarIcon, Loader2, Upload, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -84,12 +84,13 @@ export default function ProfileEditForm({
 }: ProfileEditFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(
-    user && user.profile ? user.profile.pfp || null : null
+    user?.profile?.pfp || null
   );
 
-  // Initialize form with user data - add null checks
+  // Initialize form with user data
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -108,10 +109,39 @@ export default function ProfileEditForm({
 
   // Handle profile image change
   const handleImageChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (!e.target.files || e.target.files.length === 0) return;
+      if (!user || !user.id) {
+        toast({
+          title: "Error",
+          description: "User data is missing. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const file = e.target.files[0];
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "Image size must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Error",
+          description: "Only image files are allowed",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setProfileImage(file);
 
       // Create preview
@@ -120,8 +150,56 @@ export default function ProfileEditForm({
         setProfileImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // Upload image immediately
+      try {
+        setUploadingImage(true);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "profile");
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+          headers: {
+            "x-user-id": user.id,
+            "x-user-username": user.username,
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload profile image");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        const imageUrl = uploadResult.url || uploadResult.data?.url;
+
+        if (!imageUrl) {
+          throw new Error("No image URL returned from server");
+        }
+
+        // Update preview with the actual URL from server
+        setProfileImagePreview(imageUrl);
+
+        toast({
+          title: "Success",
+          description: "Profile image uploaded successfully",
+        });
+      } catch (error) {
+        console.error("Error uploading profile image:", error);
+        toast({
+          title: "Error",
+          description: "Failed to upload profile image. Please try again.",
+          variant: "destructive",
+        });
+        // Revert to previous image if upload fails
+        setProfileImagePreview(user.profile?.pfp || null);
+        setProfileImage(null);
+      } finally {
+        setUploadingImage(false);
+      }
     },
-    []
+    [toast, user]
   );
 
   // Handle form submission
@@ -139,31 +217,6 @@ export default function ProfileEditForm({
       setIsSubmitting(true);
 
       try {
-        // Upload profile image if changed
-        let pfpUrl = user.profile?.pfp || null;
-
-        if (profileImage) {
-          const formData = new FormData();
-          formData.append("file", profileImage);
-          formData.append("type", "profile");
-
-          const uploadResponse = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-            headers: {
-              "x-user-id": user.id,
-              "x-user-username": user.username,
-            },
-          });
-
-          if (!uploadResponse.ok) {
-            throw new Error("Failed to upload profile image");
-          }
-
-          const uploadResult = await uploadResponse.json();
-          pfpUrl = uploadResult.url || uploadResult.data?.url;
-        }
-
         // Prepare profile data
         const profileData: Partial<User> = {
           username: data.username,
@@ -175,7 +228,7 @@ export default function ProfileEditForm({
             bio: data.bio || null,
             website: data.website || null,
             birthdate: data.birthdate ? data.birthdate.toISOString() : null,
-            pfp: pfpUrl,
+            pfp: profileImagePreview, // Use the already uploaded image URL
           },
         };
 
@@ -189,6 +242,11 @@ export default function ProfileEditForm({
           throw new Error("Failed to update profile");
         }
 
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+        });
+
         onUpdate(updatedUser);
       } catch (error) {
         console.error("Error updating profile:", error);
@@ -201,7 +259,7 @@ export default function ProfileEditForm({
         setIsSubmitting(false);
       }
     },
-    [onUpdate, profileImage, toast, user]
+    [onUpdate, profileImagePreview, toast, user]
   );
 
   if (!user) {
@@ -214,7 +272,7 @@ export default function ProfileEditForm({
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Update your profile information. Click save when you are done.
+            Update your profile information. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
 
@@ -222,29 +280,49 @@ export default function ProfileEditForm({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Profile Picture */}
             <div className="flex flex-col items-center gap-4">
-              <Avatar className="w-24 h-24 border-2 border-white shadow-md">
-                <AvatarImage
-                  src={profileImagePreview || "/placeholder-user.jpg"}
-                  alt={user.username}
-                />
-                <AvatarFallback className="text-2xl">
-                  {user.username.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="w-24 h-24 border-2 border-white shadow-md">
+                  <AvatarImage
+                    src={profileImagePreview || "/placeholder-user.jpg"}
+                    alt={user.username}
+                  />
+                  <AvatarFallback className="text-2xl">
+                    {user.username.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {uploadingImage && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
-                <label htmlFor="profile-image" className="cursor-pointer">
-                  <Button type="button" variant="outline" size="sm">
-                    Change Photo
-                  </Button>
-                  <input
-                    id="profile-image"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageChange}
-                  />
-                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingImage}
+                  className="flex items-center gap-1"
+                  onClick={() =>
+                    document.getElementById("profile-image-input")?.click()
+                  }
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-1" />
+                  )}
+                  {uploadingImage ? "Uploading..." : "Change Photo"}
+                </Button>
+                <input
+                  id="profile-image-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageChange}
+                  disabled={uploadingImage}
+                />
 
                 {profileImagePreview &&
                   profileImagePreview !== user.profile?.pfp && (
@@ -256,12 +334,16 @@ export default function ProfileEditForm({
                         setProfileImage(null);
                         setProfileImagePreview(user.profile?.pfp || null);
                       }}
+                      disabled={uploadingImage}
                     >
                       <X className="w-4 h-4 mr-1" />
                       Remove
                     </Button>
                   )}
               </div>
+              <FormDescription className="text-center text-xs">
+                Recommended: Square image, max 5MB
+              </FormDescription>
             </div>
 
             {/* Username */}
@@ -291,7 +373,7 @@ export default function ProfileEditForm({
                   <FormItem>
                     <FormLabel>First Name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -305,7 +387,7 @@ export default function ProfileEditForm({
                   <FormItem>
                     <FormLabel>Last Name</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input {...field} value={field.value || ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -326,6 +408,7 @@ export default function ProfileEditForm({
                       placeholder="Tell us about yourself"
                       className="resize-none"
                       value={field.value || ""}
+                      maxLength={160}
                     />
                   </FormControl>
                   <FormDescription>
@@ -350,6 +433,9 @@ export default function ProfileEditForm({
                       value={field.value || ""}
                     />
                   </FormControl>
+                  <FormDescription>
+                    Your personal or professional website
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -445,11 +531,15 @@ export default function ProfileEditForm({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={isSubmitting || uploadingImage}
+                className="min-w-[100px]"
+              >
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Save Changes
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </form>
