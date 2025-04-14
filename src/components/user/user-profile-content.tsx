@@ -19,7 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Blog } from "@/controller/blogController";
+import type { Blog } from "@/controller/blogController";
 import { userController, type User } from "@/controller/userController";
 import { useToast } from "@/hook/use-toast";
 import useStore from "@/lib/store";
@@ -132,8 +132,11 @@ export default function UserProfileContent({
         followers: prev.followers + (isFollowing ? -1 : 1),
       }));
 
-      // Call API
-      const result = await userController.toggleFollow(currentUser.id, user.id);
+      // Call API using controller
+      const result = await userController.toggleFollow(
+        user.id,
+        currentUserData.id
+      );
 
       // If API returns different result, revert
       if (result.following !== !isFollowing) {
@@ -201,7 +204,7 @@ export default function UserProfileContent({
     [router, toast, username, isCurrentUser, setUserProfile, setCurrentUser]
   );
 
-  // Fetch user stats
+  // Fetch user stats using controller
   const fetchUserStats = useCallback(
     async (userId: string) => {
       try {
@@ -217,34 +220,25 @@ export default function UserProfileContent({
           return;
         }
 
-        // Fetch from API if not in cache
-        const response = await fetch(`/api/user/${userId}/stats`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
+        // Fetch from API if not in cache using controller
+        const statsData = await userController.getUserStats(userId);
+
+        setStats({
+          posts: statsData.posts,
+          followers: statsData.followers,
+          following: statsData.following,
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch user stats");
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-          const statsData = {
-            posts: result.data?.posts || 0,
-            followers: result.data?.followers || 0,
-            following: result.data?.following || 0,
-          };
-
-          setStats(statsData);
-
-          // Save to cache
-          setUserStats(userId, statsData);
-        }
+        // Save to cache
+        setUserStats(userId, statsData);
       } catch (error) {
         console.error(`Error fetching stats for user ${userId}:`, error);
+        // Set default values on error
+        setStats({
+          posts: 0,
+          followers: 0,
+          following: 0,
+        });
       }
     },
     [getUserStats, setUserStats]
@@ -269,7 +263,7 @@ export default function UserProfileContent({
           return;
         }
 
-        // Fetch from API if not in cache
+        // Fetch from API if not in cache using controller
         const isFollowing = await userController.isFollowing(
           userId,
           currentUserData.id
@@ -583,7 +577,7 @@ export default function UserProfileContent({
                 {isCurrentUser && (
                   <Button
                     className="mt-4"
-                    onClick={() => router.push("/create")}
+                    onClick={() => router.push("/create-blog")}
                   >
                     Create Post
                   </Button>
