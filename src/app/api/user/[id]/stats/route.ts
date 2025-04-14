@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma"; // Import from the shared client
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
@@ -7,10 +7,19 @@ import { type NextRequest, NextResponse } from "next/server";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const userId = params.userId;
+    const userId = params.id; // Now using params.id
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    console.log("Fetching stats for user:", userId);
 
     // Check if the user exists
     const user = await prisma.user.findUnique({
@@ -42,16 +51,18 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: {
-        posts: postCount,
-        followers: followerCount,
-        following: followingCount,
-      },
+      posts: postCount,
+      followers: followerCount,
+      following: followingCount,
     });
   } catch (error) {
     console.error("Error fetching user stats:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to fetch user stats" },
+      {
+        success: false,
+        message: "Failed to fetch user stats",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
