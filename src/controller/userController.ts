@@ -118,7 +118,6 @@ class UserController {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": userId, // The current user's ID is sent in the header
         },
       });
 
@@ -337,7 +336,7 @@ class UserController {
    * @endpoint GET /api/suggested-users
    */
   async getSuggestedUsers(
-    currentUserId?: string,
+    currentUserId: string,
     limit = 5
   ): Promise<SuggestedUser[]> {
     try {
@@ -348,12 +347,8 @@ class UserController {
         "Content-Type": "application/json",
       };
 
-      if (currentUserId) {
-        headers["x-user-id"] = currentUserId;
-      }
-
       const response = await fetch(
-        `/api/suggested-users?${queryParams.toString()}`,
+        `/api/user/${currentUserId}/suggested?${queryParams.toString()}`,
         {
           method: "GET",
           headers,
