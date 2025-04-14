@@ -4,10 +4,10 @@ import { type NextRequest, NextResponse } from "next/server";
 // POST /api/user/[id]/follow - Follow or unfollow a user
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { userId: string } }
 ) {
   try {
-    const followingId = params.id;
+    const followingId = params.userId;
     const followerId = request.headers.get("x-user-id"); // The current user
 
     if (!followerId) {
@@ -67,7 +67,7 @@ export async function POST(
   } catch (error) {
     console.error("Error following/unfollowing user:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to follow/unfollow user" },
+      { success: false, message: error },
       { status: 500 }
     );
   }
@@ -76,10 +76,10 @@ export async function POST(
 // GET /api/user/[id]/follow - Check if current user is following a user
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { userId: string } }
 ) {
   try {
-    const followingId = params.id;
+    const followingId = params.userId;
     const followerId = request.headers.get("x-user-id");
 
     if (!followerId) {
