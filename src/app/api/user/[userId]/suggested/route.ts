@@ -41,7 +41,18 @@ export async function GET(
       select: {
         id: true,
         username: true,
-        email: true, // Include any fields you need
+        email: true,
+        profile: {
+          select: {
+            pfp: true,
+          },
+        },
+        _count: {
+          select: {
+            followers: true,
+            blogs: true,
+          },
+        },
       },
     });
 

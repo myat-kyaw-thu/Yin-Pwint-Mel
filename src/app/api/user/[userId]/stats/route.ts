@@ -7,10 +7,10 @@ import { type NextRequest, NextResponse } from "next/server";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { userId: string } }
 ) {
   try {
-    const userId = params.id; // Now using params.id
+    const userId = params.userId; // Now using params.id
 
     if (!userId) {
       return NextResponse.json(
