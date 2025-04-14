@@ -11,19 +11,21 @@ import {
   Settings,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import HomeLayout from "@/components/layout/home-layout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Blog } from "@/controller/blogController";
 import { userController, type User } from "@/controller/userController";
 import { useToast } from "@/hook/use-toast";
 import useStore from "@/lib/store";
-import BlogFeed from "../blog/blog-feed";
 import ProfileEditForm from "./profile-edit-form";
 
 interface UserProfileContentProps {
@@ -67,20 +69,31 @@ export default function UserProfileContent({
   const [userBlogs, setLocalUserBlogs] = useState<Blog[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Refs to prevent multiple API calls
   const isInitialized = useRef(false);
   const currentUsername = useRef(username);
+  const dataFetchedRef = useRef({
+    stats: false,
+    follow: false,
+    blogs: false,
+  });
 
   // Fetch user blogs
   const fetchUserBlogs = useCallback(
     async (userId: string, cursor?: string) => {
+      // Prevent duplicate API calls
+      if (!cursor && dataFetchedRef.current.blogs) return;
+
       try {
+        setLoadingMore(!!cursor);
         const response = await userController.getUserBlogs(userId, cursor);
 
         if (response && response.data) {
           if (!cursor) {
             setLocalUserBlogs(response.data);
+            dataFetchedRef.current.blogs = true;
 
             // Update cache
             setUserBlogs(userId, response.data, {
@@ -108,6 +121,8 @@ export default function UserProfileContent({
           description: "Failed to load user posts",
           variant: "destructive",
         });
+      } finally {
+        setLoadingMore(false);
       }
     },
     [toast, userBlogs, setUserBlogs]
@@ -115,10 +130,9 @@ export default function UserProfileContent({
 
   // Load more blogs
   const loadMoreBlogs = useCallback(async () => {
-    if (!hasMore || !nextCursor || !user?.id) return;
-
+    if (!hasMore || !nextCursor || !user?.id || loadingMore) return;
     await fetchUserBlogs(user.id, nextCursor);
-  }, [fetchUserBlogs, hasMore, nextCursor, user?.id]);
+  }, [fetchUserBlogs, hasMore, nextCursor, user?.id, loadingMore]);
 
   // Toggle follow status
   const toggleFollow = useCallback(async () => {
@@ -207,6 +221,9 @@ export default function UserProfileContent({
   // Fetch user stats using controller
   const fetchUserStats = useCallback(
     async (userId: string) => {
+      // Prevent duplicate API calls
+      if (dataFetchedRef.current.stats) return;
+
       try {
         // Check cache first
         const cachedStats = getUserStats(userId);
@@ -217,11 +234,13 @@ export default function UserProfileContent({
             followers: cachedStats.followers,
             following: cachedStats.following,
           });
+          dataFetchedRef.current.stats = true;
           return;
         }
 
         // Fetch from API if not in cache using controller
         const statsData = await userController.getUserStats(userId);
+        dataFetchedRef.current.stats = true;
 
         setStats({
           posts: statsData.posts,
@@ -247,6 +266,9 @@ export default function UserProfileContent({
   // Check if current user is following profile user
   const checkFollowStatus = useCallback(
     async (userId: string) => {
+      // Prevent duplicate API calls
+      if (dataFetchedRef.current.follow) return;
+
       try {
         if (!currentUserData?.id) {
           console.error(
@@ -260,6 +282,7 @@ export default function UserProfileContent({
 
         if (cachedStatus) {
           setIsFollowing(cachedStatus.following);
+          dataFetchedRef.current.follow = true;
           return;
         }
 
@@ -268,6 +291,7 @@ export default function UserProfileContent({
           userId,
           currentUserData.id
         );
+        dataFetchedRef.current.follow = true;
         setIsFollowing(isFollowing);
 
         // Save to cache
@@ -288,6 +312,11 @@ export default function UserProfileContent({
     if (currentUsername.current !== username) {
       isInitialized.current = false;
       currentUsername.current = username;
+      dataFetchedRef.current = {
+        stats: false,
+        follow: false,
+        blogs: false,
+      };
     }
 
     // Check if user is authenticated
@@ -354,6 +383,8 @@ export default function UserProfileContent({
         // 4. If not viewing own profile, check follow status
         if (!isSameUser) {
           await checkFollowStatus(profileUser.id);
+        } else {
+          dataFetchedRef.current.follow = true; // No need to check follow status for own profile
         }
 
         // 5. Fetch user stats
@@ -367,6 +398,7 @@ export default function UserProfileContent({
           setLocalUserBlogs(cachedBlogs.data);
           setHasMore(cachedBlogs.pagination.hasMore);
           setNextCursor(cachedBlogs.pagination.nextCursor);
+          dataFetchedRef.current.blogs = true;
         } else {
           // Fetch from API
           await fetchUserBlogs(profileUser.id);
@@ -402,6 +434,36 @@ export default function UserProfileContent({
     setUserProfile,
     getUserBlogs,
   ]);
+
+  // Render blog grid item
+  const renderBlogItem = (blog: Blog) => {
+    return (
+      <Link href={`/blog/${blog.id}`} key={blog.id} className="block">
+        <Card className="overflow-hidden h-full transition-all hover:shadow-md">
+          <div className="aspect-square relative overflow-hidden bg-gray-100">
+            {blog.images && blog.images.length > 0 ? (
+              <Image
+                src={blog.images[0].url || "/placeholder.svg"}
+                alt={blog.title}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                No image
+              </div>
+            )}
+          </div>
+          <CardContent className="p-3">
+            <h3 className="font-medium text-sm line-clamp-1">{blog.title}</h3>
+            <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+              {blog.description}
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  };
 
   if (loading || status === "loading") {
     return (
@@ -556,14 +618,28 @@ export default function UserProfileContent({
           </TabsList>
 
           <TabsContent value="posts">
-            <BlogFeed
-              blogs={userBlogs}
-              currentUser={currentUserData}
-              hasMore={hasMore}
-              onLoadMore={loadMoreBlogs}
-            />
+            {userBlogs.length > 0 ? (
+              <div className="space-y-6">
+                {/* Blog Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {userBlogs.map((blog) => renderBlogItem(blog))}
+                </div>
 
-            {userBlogs.length === 0 && (
+                {/* Load More Button */}
+                {hasMore && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={loadMoreBlogs}
+                      disabled={loadingMore}
+                      className="w-full max-w-xs"
+                    >
+                      {loadingMore ? "Loading..." : "Load More"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
               <div className="text-center py-12">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   No Posts Yet
