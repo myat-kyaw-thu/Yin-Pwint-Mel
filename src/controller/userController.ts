@@ -343,19 +343,18 @@ class UserController {
       const queryParams = new URLSearchParams();
       queryParams.append("limit", limit.toString());
 
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-
       const response = await fetch(
         `/api/user/${currentUserId}/suggested?${queryParams.toString()}`,
         {
           method: "GET",
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
       if (!response.ok) {
+        console.error(`Suggested users API error: ${response.status}`);
         throw new Error(`Failed to fetch suggested users: ${response.status}`);
       }
 
@@ -368,7 +367,10 @@ class UserController {
       console.error("Unexpected response format:", result);
       return [];
     } catch (error) {
-      console.error("Error fetching suggested users:", error);
+      console.error(
+        `Error fetching suggested users for user ${currentUserId}:`,
+        error
+      );
       return [];
     }
   }
