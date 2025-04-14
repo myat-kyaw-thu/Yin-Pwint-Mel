@@ -149,7 +149,7 @@ interface AppState {
 }
 
 // Cache expiration time (in milliseconds)
-const CACHE_EXPIRATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRATION = 20 * 60 * 1000; // 5 minutes
 
 const useStore = create<AppState>()(
   persist(

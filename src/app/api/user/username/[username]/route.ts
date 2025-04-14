@@ -1,14 +1,18 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
 
-// GET /api/user/username/[username] - Get user by username
+/**
+ * GET /api/user/username/[username]
+ * Returns user data by username
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: { username: string } }
 ) {
   try {
-    const { username } = params;
+    const username = params.username;
 
+    // Find the user by username
     const user = await prisma.user.findUnique({
       where: { username },
       include: {
@@ -23,17 +27,18 @@ export async function GET(
       );
     }
 
+    // Remove sensitive information
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userWithoutPassword } = user;
 
     return NextResponse.json({
       success: true,
-      data: userWithoutPassword,
+      user: userWithoutPassword,
     });
   } catch (error) {
-    console.error(`Error fetching user by username ${params.username}:`, error);
+    console.error("Error fetching user by username:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to fetch user data" },
+      { success: false, message: "Failed to fetch user" },
       { status: 500 }
     );
   }
