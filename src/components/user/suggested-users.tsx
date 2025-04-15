@@ -162,13 +162,6 @@ export default function SuggestedUsers({
             </Button>
           </div>
         ))}
-
-        <Link
-          href="/explore"
-          className="text-sm text-gray-500 hover:text-gray-900 block text-center mt-2"
-        >
-          See More
-        </Link>
       </CardContent>
     </Card>
   );
