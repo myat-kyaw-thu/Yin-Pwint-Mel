@@ -653,7 +653,7 @@ export default function UserProfileContent({
                 {isCurrentUser && (
                   <Button
                     className="mt-4"
-                    onClick={() => router.push("/create-blog")}
+                    onClick={() => router.push("/create")}
                   >
                     Create Post
                   </Button>
