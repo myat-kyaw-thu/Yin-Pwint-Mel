@@ -2,13 +2,7 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import {
-  BookmarkPlus,
-  Heart,
-  MessageSquare,
-  MoreHorizontal,
-  Share2,
-} from "lucide-react";
+import { BookmarkPlus, Heart, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -227,9 +221,6 @@ export default function BlogCard({
               )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <MoreHorizontal className="h-5 w-5" />
-          </Button>
         </div>
       </CardHeader>
 
@@ -309,11 +300,7 @@ export default function BlogCard({
               size="sm"
               className="flex items-center space-x-1 text-gray-700"
               asChild
-            >
-              <Link href={`/share/${blog.id}`}>
-                <Share2 className="h-5 w-5" />
-              </Link>
-            </Button>
+            ></Button>
           </div>
           <Button
             variant="ghost"
