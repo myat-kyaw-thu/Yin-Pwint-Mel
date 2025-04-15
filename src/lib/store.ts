@@ -146,10 +146,31 @@ interface AppState {
   invalidateBlogDetail: (blogId: string) => void;
   invalidateBlogComments: (blogId: string) => void;
   clearCache: () => void;
+
+  // Add these to your existing store interface
+  savedBlogs: Record<
+    string,
+    {
+      data: Blog[];
+      pagination: { hasMore: boolean; nextCursor: string | null };
+      timestamp: number;
+    }
+  >;
+  setSavedBlogs: (
+    userId: string,
+    data: Blog[],
+    pagination: { hasMore: boolean; nextCursor: string | null }
+  ) => void;
+  getSavedBlogs: (userId: string) => {
+    data: Blog[];
+    pagination: { hasMore: boolean; nextCursor: string | null };
+    timestamp: number;
+  } | null;
+  invalidateSavedBlogs: (userId: string) => void;
 }
 
 // Cache expiration time (in milliseconds)
-const CACHE_EXPIRATION = 20 * 60 * 1000; // 5 minutes
+const CACHE_EXPIRATION = 5 * 60 * 1000; // 5 minutes
 
 const useStore = create<AppState>()(
   persist(
@@ -427,6 +448,38 @@ const useStore = create<AppState>()(
           blogDetails: {},
           blogComments: {},
         }),
+
+      // Add these implementations to your store
+      // Saved blogs
+      savedBlogs: {},
+      setSavedBlogs: (userId, data, pagination) =>
+        set((state) => ({
+          savedBlogs: {
+            ...state.savedBlogs,
+            [userId]: {
+              data,
+              pagination,
+              timestamp: Date.now(),
+            },
+          },
+        })),
+      getSavedBlogs: (userId) => {
+        const cached = get().savedBlogs[userId];
+        if (!cached || Date.now() - cached.timestamp > CACHE_EXPIRATION) {
+          return null;
+        }
+        return cached;
+      },
+      invalidateSavedBlogs: (userId) =>
+        set((state) => {
+          const { savedBlogs, ...rest } = state;
+          const newSavedBlogs = { ...savedBlogs };
+          delete newSavedBlogs[userId];
+          return {
+            ...rest,
+            savedBlogs: newSavedBlogs,
+          };
+        }),
     }),
     {
       name: "blog-app-storage",
@@ -441,6 +494,7 @@ const useStore = create<AppState>()(
         followStatus: state.followStatus,
         blogDetails: state.blogDetails,
         blogComments: state.blogComments,
+        savedBlogs: state.savedBlogs,
       }),
     }
   )
