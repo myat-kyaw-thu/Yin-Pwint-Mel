@@ -534,6 +534,55 @@ class BlogController {
       throw error;
     }
   }
+  async getSavedBlogs(userId: string, cursor?: string | null) {
+    try {
+      const queryParams = new URLSearchParams();
+
+      if (cursor) {
+        queryParams.append("cursor", cursor);
+      }
+
+      const response = await fetch(
+        `/api/user/${userId}/saved?${queryParams.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": userId,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch saved blogs");
+      }
+
+      const result = await response.json();
+
+      // Handle response format
+      if (result.success) {
+        return {
+          data: result.data || [],
+          pagination: {
+            hasMore: result.pagination?.hasMore || false,
+            nextCursor: result.pagination?.nextCursor || null,
+          },
+        };
+      }
+
+      console.error("Unexpected response format:", result);
+      throw new Error("Invalid response format");
+    } catch (error) {
+      console.error(`Error fetching saved blogs for user ${userId}:`, error);
+      return {
+        data: [],
+        pagination: {
+          hasMore: false,
+          nextCursor: null,
+        },
+      };
+    }
+  }
 }
 
 export const blogController = new BlogController();
