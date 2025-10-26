@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="public/images/info.png" alt="Yin Pwint Mel" width="200" />
-  
-  # Yin Pwint Mel
-  
-  **"Let's Open Up"**
-</div>
 
+  
+  # Yin Pwint Mel (Let's Open Up)
 ---
+    
+    
+  
+</div>
 
 ## Welcome
 
