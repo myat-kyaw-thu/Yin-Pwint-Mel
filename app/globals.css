@@ -6,23 +6,29 @@
 
 :root {
   /* Graphite color scheme with white background */
-  --background: oklch(1 0 0); /* Pure white */
-  --foreground: oklch(0.2 0 0); /* Dark graphite */
+  --background: oklch(1 0 0);
+  /* Pure white */
+  --foreground: oklch(0.2 0 0);
+  /* Dark graphite */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0 0);
-  --primary: oklch(0.25 0 0); /* Graphite */
+  --primary: oklch(0.25 0 0);
+  /* Graphite */
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.95 0 0); /* Light gray */
+  --secondary: oklch(0.95 0 0);
+  /* Light gray */
   --secondary-foreground: oklch(0.2 0 0);
   --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.5 0 0); /* Medium gray */
+  --muted-foreground: oklch(0.5 0 0);
+  /* Medium gray */
   --accent: oklch(0.94 0 0);
   --accent-foreground: oklch(0.2 0 0);
   --destructive: oklch(0.5 0.2 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.88 0 0); /* Light graphite border */
+  --border: oklch(0.88 0 0);
+  /* Light graphite border */
   --input: oklch(0.88 0 0);
   --ring: oklch(0.3 0 0);
   --chart-1: oklch(0.4 0 0);
@@ -30,7 +36,8 @@
   --chart-3: oklch(0.6 0 0);
   --chart-4: oklch(0.7 0 0);
   --chart-5: oklch(0.8 0 0);
-  --radius: 0rem; /* No border radius - square shapes only */
+  --radius: 0rem;
+  /* No border radius - square shapes only */
   --sidebar: oklch(0.98 0 0);
   --sidebar-foreground: oklch(0.2 0 0);
   --sidebar-primary: oklch(0.25 0 0);
@@ -43,8 +50,10 @@
 
 .dark {
   /* Dark theme with graphite tones */
-  --background: oklch(0.15 0 0); /* Dark graphite background */
-  --foreground: oklch(0.95 0 0); /* Light text */
+  --background: oklch(0.15 0 0);
+  /* Dark graphite background */
+  --foreground: oklch(0.95 0 0);
+  /* Light text */
   --card: oklch(0.18 0 0);
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.15 0 0);
@@ -78,8 +87,8 @@
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: var(--font-open-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -122,8 +131,8 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
-
