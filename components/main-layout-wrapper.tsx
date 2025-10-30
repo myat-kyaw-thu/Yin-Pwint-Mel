@@ -3,42 +3,16 @@
 import { Header } from "@/components/header"
 import { ProfileSidebar } from "@/components/profile-sidebar"
 import type { Profile } from "@/types/database"
-import { memo, useEffect, useState } from "react"
+import { memo } from "react"
 
 interface MainLayoutWrapperProps {
   profile: Profile | null
   children: React.ReactNode
 }
 
-const MemoizedProfileSidebar = memo(
-  ProfileSidebar,
-  (prevProps, nextProps) => {
-    // Only re-render if profile data actually changed
-    if (!prevProps.profile && !nextProps.profile) return true
-    if (!prevProps.profile || !nextProps.profile) return false
+const MemoizedProfileSidebar = memo(ProfileSidebar)
 
-    return (
-      prevProps.profile.id === nextProps.profile.id &&
-      prevProps.profile.username === nextProps.profile.username &&
-      prevProps.profile.bio === nextProps.profile.bio &&
-      prevProps.profile.profile_image === nextProps.profile.profile_image &&
-      prevProps.profile.website_url === nextProps.profile.website_url &&
-      prevProps.profile.twitter_url === nextProps.profile.twitter_url &&
-      prevProps.profile.github_url === nextProps.profile.github_url
-    )
-  }
-)
-
-export function MainLayoutWrapper({ profile: initialProfile, children }: MainLayoutWrapperProps) {
-  const [profile, setProfile] = useState(initialProfile)
-
-  // Only update profile if it actually changed
-  useEffect(() => {
-    if (JSON.stringify(initialProfile) !== JSON.stringify(profile)) {
-      setProfile(initialProfile)
-    }
-  }, [initialProfile, profile])
-
+export function MainLayoutWrapper({ profile, children }: MainLayoutWrapperProps) {
   return (
     <div className="min-h-screen">
       <Header />
