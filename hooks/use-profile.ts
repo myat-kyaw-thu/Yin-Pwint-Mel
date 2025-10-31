@@ -1,18 +1,24 @@
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { updateProfile, type UpdateProfileInput } from "@/lib/actions/profile.actions"
 import { toast } from "@/hooks/use-toast"
 
-export function useUpdateProfile(onSuccess?: (data: any) => void) {
+export function useUpdateProfile(onSuccess?: () => void) {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: updateProfile,
     onSuccess: (data) => {
+      // Update the profile cache immediately
+      queryClient.setQueryData(["profile"], data)
+      
       toast({
         title: "Profile Updated",
         description: "Your profile has been updated successfully",
       })
-      // Call the callback to update local state
+      
+      // Call the callback
       if (onSuccess) {
-        onSuccess(data)
+        onSuccess()
       }
     },
     onError: (error) => {
