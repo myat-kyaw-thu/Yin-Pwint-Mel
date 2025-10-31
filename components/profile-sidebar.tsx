@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { Profile } from "@/types/database"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import { Globe, Twitter, Github, Check, LogOut } from "lucide-react"
 import { useUpdateProfile } from "@/hooks/use-profile"
 import { AVAILABLE_PROFILE_IMAGES } from "@/lib/constants/profile-images"
 import { signOut } from "@/lib/actions/auth.actions"
+import { useProfile } from "@/providers/profile-provider"
 
 interface ProfileSidebarProps {
   profile: Profile | null
@@ -21,7 +22,7 @@ interface ProfileSidebarProps {
 
 export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [profile, setProfile] = useState(initialProfile)
+  const { refetch } = useProfile()
   const [formData, setFormData] = useState(
     initialProfile || {
       id: "",
@@ -37,33 +38,15 @@ export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps)
   )
   const [showImageSelector, setShowImageSelector] = useState(false)
 
-  const updateMutation = useUpdateProfile((updatedData) => {
-    // Optimistically update local state
-    setProfile(updatedData)
-    setFormData(updatedData)
+  const updateMutation = useUpdateProfile(() => {
+    // Refetch profile from context after update
+    refetch()
   })
 
   const availableImages = AVAILABLE_PROFILE_IMAGES
 
-  // Sync with prop changes (only on initial mount or when user logs in/out)
-  useEffect(() => {
-    if (initialProfile?.id !== profile?.id) {
-      setProfile(initialProfile)
-      setFormData(
-        initialProfile || {
-          id: "",
-          username: "",
-          bio: null,
-          profile_image: null,
-          website_url: null,
-          twitter_url: null,
-          github_url: null,
-          created_at: "",
-          updated_at: "",
-        }
-      )
-    }
-  }, [initialProfile?.id, profile?.id, initialProfile])
+  // Use profile from props (comes from context via memo)
+  const profile = initialProfile
 
   // Show login prompt if no profile
   if (!profile) {
@@ -98,52 +81,17 @@ export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Optimistically update UI immediately
-    const optimisticProfile = {
-      ...profile,
-      username: formData.username,
-      bio: formData.bio,
-      profile_image: formData.profile_image,
-      website_url: formData.website_url,
-      twitter_url: formData.twitter_url,
-      github_url: formData.github_url,
-      updated_at: new Date().toISOString(),
-    }
-
-    setProfile(optimisticProfile as Profile)
     setIsEditing(false)
 
-    // Update in background
-    updateMutation.mutate(
-      {
-        username: formData.username,
-        bio: formData.bio || undefined,
-        profile_image: formData.profile_image || undefined,
-        website_url: formData.website_url || undefined,
-        twitter_url: formData.twitter_url || undefined,
-        github_url: formData.github_url || undefined,
-      },
-      {
-        onError: () => {
-          // Rollback on error
-          setProfile(initialProfile)
-          setFormData(
-            initialProfile || {
-              id: "",
-              username: "",
-              bio: null,
-              profile_image: null,
-              website_url: null,
-              twitter_url: null,
-              github_url: null,
-              created_at: "",
-              updated_at: "",
-            }
-          )
-        },
-      }
-    )
+    // Update via mutation - context will handle the state
+    updateMutation.mutate({
+      username: formData.username,
+      bio: formData.bio || undefined,
+      profile_image: formData.profile_image || undefined,
+      website_url: formData.website_url || undefined,
+      twitter_url: formData.twitter_url || undefined,
+      github_url: formData.github_url || undefined,
+    })
   }
 
   if (isEditing) {
