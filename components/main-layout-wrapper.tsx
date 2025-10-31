@@ -2,17 +2,29 @@
 
 import { Header } from "@/components/header"
 import { ProfileSidebar } from "@/components/profile-sidebar"
-import type { Profile } from "@/types/database"
 import { memo } from "react"
+import { useProfile } from "@/providers/profile-provider"
 
 interface MainLayoutWrapperProps {
-  profile: Profile | null
   children: React.ReactNode
 }
 
-const MemoizedProfileSidebar = memo(ProfileSidebar)
+// Deep comparison for profile to handle reference changes
+const MemoizedProfileSidebar = memo(
+  ProfileSidebar,
+  (prevProps, nextProps) => {
+    // Handle null cases
+    if (!prevProps.profile && !nextProps.profile) return true
+    if (!prevProps.profile || !nextProps.profile) return false
+    
+    // Deep comparison of profile fields
+    return JSON.stringify(prevProps.profile) === JSON.stringify(nextProps.profile)
+  }
+)
 
-export function MainLayoutWrapper({ profile, children }: MainLayoutWrapperProps) {
+export function MainLayoutWrapper({ children }: MainLayoutWrapperProps) {
+  const { profile } = useProfile()
+
   return (
     <div className="min-h-screen">
       <Header />
