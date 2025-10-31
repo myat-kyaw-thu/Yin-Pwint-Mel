@@ -4,6 +4,9 @@ import { Open_Sans } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { QueryProvider } from "@/providers/query-provider"
 import { ThemeProvider } from "@/providers/theme-provider"
+import { ProfileProvider } from "@/providers/profile-provider"
+import { MainLayoutWrapper } from "@/components/main-layout-wrapper"
+import { getUser } from "@/lib/actions/auth.actions"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
@@ -52,16 +55,23 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Fetch profile once at root level for SSR
+  const initialProfile = await getUser()
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${openSans.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <ProfileProvider initialProfile={initialProfile}>
+              <MainLayoutWrapper>{children}</MainLayoutWrapper>
+            </ProfileProvider>
+          </QueryProvider>
           <Toaster />
         </ThemeProvider>
         <Analytics />
