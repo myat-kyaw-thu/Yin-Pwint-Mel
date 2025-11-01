@@ -22,7 +22,6 @@ export async function signUp(email: string, password: string, username: string) 
         return { error: authError.message }
     }
 
-    // Profile will be created by database trigger after email confirmation
     revalidatePath("/", "layout")
     return { success: true, userId: authData.user?.id }
 }
@@ -66,7 +65,6 @@ export async function getUser() {
             .eq("id", user.id)
             .maybeSingle()
 
-        // If profile doesn't exist, create it
         if (!profile) {
             const username = user.user_metadata?.username || user.email?.split("@")[0] || `user_${user.id.slice(0, 8)}`
 
@@ -82,7 +80,7 @@ export async function getUser() {
 
             if (createError) {
                 console.error("Failed to create profile:", createError.message)
-                // Return a temporary profile object
+            
                 return {
                     id: user.id,
                     username,

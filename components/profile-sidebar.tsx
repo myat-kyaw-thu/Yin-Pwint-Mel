@@ -39,16 +39,13 @@ export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps)
   const [showImageSelector, setShowImageSelector] = useState(false)
 
   const updateMutation = useUpdateProfile(() => {
-    // Refetch profile from context after update
     refetch()
   })
 
   const availableImages = AVAILABLE_PROFILE_IMAGES
 
-  // Use profile from props (comes from context via memo)
-  const profile = initialProfile
+  const profile = initialProfile;
 
-  // Show login prompt if no profile
   if (!profile) {
     return (
       <div className="sticky top-24 border border-border bg-card">

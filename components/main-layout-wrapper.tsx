@@ -23,7 +23,7 @@ const MemoizedProfileSidebar = memo(
 )
 
 export function MainLayoutWrapper({ children }: MainLayoutWrapperProps) {
-  const { profile } = useProfile()
+  const { profile } = useProfile();
 
   return (
     <div className="min-h-screen">

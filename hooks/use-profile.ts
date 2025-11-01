@@ -8,7 +8,6 @@ export function useUpdateProfile(onSuccess?: () => void) {
   return useMutation({
     mutationFn: updateProfile,
     onSuccess: (data) => {
-      // Update the profile cache immediately
       queryClient.setQueryData(["profile"], data)
       
       toast({
@@ -16,7 +15,6 @@ export function useUpdateProfile(onSuccess?: () => void) {
         description: "Your profile has been updated successfully",
       })
       
-      // Call the callback
       if (onSuccess) {
         onSuccess()
       }
