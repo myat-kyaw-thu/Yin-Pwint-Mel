@@ -38,13 +38,21 @@ export async function signIn(email: string, password: string) {
         return { error: error.message }
     }
 
+    // Fetch the user profile after successful login
+    const profile = await getUser()
+    
     revalidatePath("/", "layout")
-    return { success: true }
+    return { success: true, profile }
 }
 
 export async function signOut() {
     const supabase = await createClient()
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    
+    if (error) {
+        console.error("Sign out error:", error)
+    }
+    
     revalidatePath("/", "layout")
     redirect("/")
 }
