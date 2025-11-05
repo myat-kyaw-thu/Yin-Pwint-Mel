@@ -211,7 +211,6 @@ async function ensureUniqueSlug(supabase: any, slug: string, excludeId?: string)
     attempts++
   }
 
-  // Fallback: use timestamp if all attempts failed
   return `${slug}-${Date.now()}`
 }
 
