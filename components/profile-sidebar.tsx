@@ -20,11 +20,20 @@ interface ProfileSidebarProps {
   profile: Profile | null
 }
 
-export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps) {
+export function ProfileSidebar({ profile: _unusedProp }: ProfileSidebarProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const { refetch } = useProfile()
+  const { profile, setProfile } = useProfile()
+  
+  const handleLogout = async () => {
+    // Clear profile immediately for instant UI update
+    setProfile(null)
+    
+    // Then call server action (will redirect)
+    await signOut()
+  }
+  
   const [formData, setFormData] = useState(
-    initialProfile || {
+    profile || {
       id: "",
       username: "",
       bio: null,
@@ -38,13 +47,12 @@ export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps)
   )
   const [showImageSelector, setShowImageSelector] = useState(false)
 
-  const updateMutation = useUpdateProfile(() => {
-    refetch()
+  const updateMutation = useUpdateProfile((updatedProfile: Profile) => {
+    // Update profile in context after successful update
+    setProfile(updatedProfile)
   })
 
   const availableImages = AVAILABLE_PROFILE_IMAGES
-
-  const profile = initialProfile;
 
   if (!profile) {
     return (
@@ -294,7 +302,7 @@ export function ProfileSidebar({ profile: initialProfile }: ProfileSidebarProps)
             Edit Profile
           </Button>
           <Button
-            onClick={() => signOut()}
+            onClick={handleLogout}
             variant="ghost"
             className="rounded-none w-full text-sm py-2 text-muted-foreground hover:text-foreground"
           >

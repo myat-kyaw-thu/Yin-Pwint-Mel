@@ -6,17 +6,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import { useProfile } from "@/providers/profile-provider"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const { setProfile } = useProfile()
 
   useEffect(() => {
     if (searchParams.get("confirmed") === "true") {
@@ -39,12 +41,18 @@ export default function LoginPage() {
       setError(result.error)
       setLoading(false)
     } else if (result?.success) {
+      // Update profile in context immediately
+      setProfile(result.profile)
+      
       toast({
         title: "Welcome back!",
-        description: "Successfully logged in. Customize your profile to get started.",
+        description: "Successfully logged in.",
         variant: "default",
       })
+      
+      // Client-side navigation
       router.push("/")
+      router.refresh()
     }
   }
 

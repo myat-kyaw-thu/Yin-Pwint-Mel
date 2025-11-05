@@ -1,14 +1,11 @@
 "use client"
 
-import { createContext, useContext, type ReactNode } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { getUser } from "@/lib/actions/auth.actions"
+import { createContext, useContext, useState, type ReactNode } from "react"
 import type { Profile } from "@/types/database"
 
 interface ProfileContextType {
   profile: Profile | null
-  isLoading: boolean
-  refetch: () => void
+  setProfile: (profile: Profile | null) => void
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined)
@@ -20,19 +17,10 @@ export function ProfileProvider({
   children: ReactNode
   initialProfile: Profile | null 
 }) {
-  // Use TanStack Query with initial data from SSR
-  const { data: profile, isLoading, refetch } = useQuery({
-    queryKey: ["profile"],
-    queryFn: getUser,
-    initialData: initialProfile,
-    staleTime: 5 * 60 * 1000, // 5 minutes - prevents over-fetching
-    gcTime: 10 * 60 * 1000, // 10 minutes cache
-    refetchOnMount: false, // Don't refetch on every mount
-    refetchOnWindowFocus: true, // Only refetch on focus (auth changes)
-  })
+  const [profile, setProfile] = useState<Profile | null>(initialProfile)
 
   return (
-    <ProfileContext.Provider value={{ profile: profile ?? null, isLoading, refetch }}>
+    <ProfileContext.Provider value={{ profile, setProfile }}>
       {children}
     </ProfileContext.Provider>
   )
