@@ -50,6 +50,14 @@ export async function getPosts(page: number = 0, pageSize: number = 10) {
         id,
         username,
         profile_image
+      ),
+      post_tags (
+        tags (
+          id,
+          name,
+          slug,
+          color
+        )
       )
     `)
     .eq("status", "published")
@@ -90,6 +98,7 @@ export async function getPosts(page: number = 0, pageSize: number = 10) {
 
       return {
         ...post,
+        tags: post.post_tags?.map((pt: any) => pt.tags).filter(Boolean) || [],
         likes_count: likesResult.count || 0,
         comments_count: commentsResult.count || 0,
         is_liked: userLikes.includes(post.id),
@@ -118,6 +127,14 @@ export async function getPostBySlug(slug: string) {
         username,
         profile_image,
         bio
+      ),
+      post_tags (
+        tags (
+          id,
+          name,
+          slug,
+          color
+        )
       )
     `)
     .eq("slug", slug)
@@ -159,6 +176,7 @@ export async function getPostBySlug(slug: string) {
 
   return {
     ...post,
+    tags: post.post_tags?.map((pt: any) => pt.tags).filter(Boolean) || [],
     likes_count: likesResult.count || 0,
     comments_count: commentsResult.count || 0,
     is_liked: isLiked,

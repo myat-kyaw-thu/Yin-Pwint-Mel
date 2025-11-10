@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RichEditor } from "@/components/rich-editor"
+import { TagCombobox } from "@/components/tag-combobox"
 import { useCreatePost, useUpdatePost } from "@/hooks/use-blog"
+import { useTags, usePostTags, useAddTagsToPost } from "@/hooks/use-tags"
 import { generateSlug } from "@/lib/utils/slug"
 import type { BlogPost } from "@/lib/actions/blog.actions"
+import type { Tag } from "@/lib/actions/tag.actions"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
@@ -28,11 +31,23 @@ export function BlogForm({ post, authorId }: BlogFormProps) {
     (post?.status as "draft" | "published") || "draft"
   )
   const [autoSlug, setAutoSlug] = useState(!isEditing)
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
 
   const createMutation = useCreatePost()
   const updateMutation = useUpdatePost()
+  const addTagsMutation = useAddTagsToPost()
+  
+  const { data: allTags = [] } = useTags()
+  const { data: postTags = [] } = usePostTags(post?.id || "")
 
-  const isLoading = createMutation.isPending || updateMutation.isPending
+  const isLoading = createMutation.isPending || updateMutation.isPending || addTagsMutation.isPending
+
+  // Load existing tags when editing
+  useEffect(() => {
+    if (isEditing && postTags.length > 0) {
+      setSelectedTags(postTags)
+    }
+  }, [isEditing, postTags])
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -58,15 +73,27 @@ export function BlogForm({ post, authorId }: BlogFormProps) {
     }
 
     try {
+      let postId: string
+      
       if (isEditing) {
-        await updateMutation.mutateAsync({
+        const updatedPost = await updateMutation.mutateAsync({
           id: post.id,
           ...postData,
         })
+        postId = updatedPost.id
       } else {
-        await createMutation.mutateAsync({
+        const newPost = await createMutation.mutateAsync({
           ...postData,
           author_id: authorId,
+        })
+        postId = newPost.id
+      }
+
+      // Add tags to post
+      if (selectedTags.length > 0) {
+        await addTagsMutation.mutateAsync({
+          postId,
+          tagIds: selectedTags.map((tag) => tag.id),
         })
       }
     } catch (error) {
@@ -144,6 +171,16 @@ export function BlogForm({ post, authorId }: BlogFormProps) {
             onChange={(e) => setExcerpt(e.target.value)}
             placeholder="Brief description of your post..."
             className="rounded-none min-h-24"
+          />
+        </div>
+
+        {/* Tags */}
+        <div className="space-y-2">
+          <Label>Tags</Label>
+          <TagCombobox
+            tags={allTags}
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
           />
         </div>
 
