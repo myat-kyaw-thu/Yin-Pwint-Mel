@@ -5,6 +5,7 @@ import type { Post } from "@/types/database"
 import { Heart, MessageCircle, Bookmark, ArrowLeft, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CommentSection } from "@/components/comment-section"
+import { TagBadge } from "@/components/tag-badge"
 import Link from "next/link"
 
 import type { Comment } from "@/types/database"
@@ -171,14 +172,9 @@ export function PostDetail({ post, comments = [], isLoadingComments = false, cur
 
             {/* Tags */}
             {post.tags && post.tags.length > 0 && (
-                <div className="flex flex-wrap gap-3 mb-8">
+                <div className="flex flex-wrap gap-2 mb-12 pb-12 border-b border-border">
                     {post.tags.map((tag) => (
-                        <span
-                            key={tag.id}
-                            className="px-4 py-2 bg-muted text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                        >
-                            {tag.name}
-                        </span>
+                        <TagBadge key={tag.id} tag={tag} size="md" />
                     ))}
                 </div>
             )}

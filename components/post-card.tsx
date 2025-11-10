@@ -7,6 +7,7 @@ import type { Post } from "@/types/database"
 import { formatDistanceToNow } from "date-fns"
 import { Heart, MessageCircle, Bookmark } from "lucide-react"
 import { useLikePost, useSavePost } from "@/hooks/use-interactions"
+import { TagBadge } from "@/components/tag-badge"
 
 interface PostCardProps {
   post: Post
@@ -68,6 +69,15 @@ function PostCardComponent({ post }: PostCardProps) {
         </div>
         <h2 className="text-2xl font-medium tracking-tight leading-tight pr-8">{post.title}</h2>
         {post.excerpt && <p className="text-muted-foreground leading-relaxed">{post.excerpt}</p>}
+        
+        {/* Tags */}
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {post.tags.map((tag) => (
+              <TagBadge key={tag.id} tag={tag} size="sm" />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-4 mt-6 pt-6 border-t border-border">
